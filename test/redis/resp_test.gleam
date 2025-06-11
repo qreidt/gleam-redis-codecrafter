@@ -79,3 +79,22 @@ pub fn parse_bulk_string_invalid_input_test() {
   |> should.be_error
   |> should.equal(resp.InvalidUnicode)
 }
+
+pub fn parse_array_empty_test() {
+  <<"*0\r\n":utf8>>
+  |> resp.parse
+  |> should.be_ok
+  |> should.equal(Parsed(data: resp.Array([]), remaining_input: <<>>))
+}
+
+pub fn parse_array_hello_world_test() {
+  <<"*2\r\n$5\r\nhello\r\n$5\r\nworld\r\n":utf8>>
+  |> resp.parse
+  |> should.be_ok
+  |> should.equal(
+    Parsed(
+      data: resp.Array([resp.String("hello"), resp.String("world")]),
+      remaining_input: <<>>,
+    ),
+  )
+}
