@@ -1,3 +1,4 @@
+// Main entry point for the Redis server implementation
 import carpenter/table
 import gleam/erlang/process
 import gleam/io
@@ -9,7 +10,7 @@ import redis/command.{type State}
 import redis/resp
 
 pub fn main() {
-  // Set up and configure an ETS table
+  // Set up and configure an ETS table for in-memory storage
   let assert Ok(ets) =
     table.build("mem-storage")
     |> table.privacy(table.Public)
@@ -19,17 +20,16 @@ pub fn main() {
     |> table.compression(False)
     |> table.set
 
-  // You can use print statements as follows for debugging, they'll be visible when running tests.
-  io.println("Logs from your program will appear here!")
-
+  // Start the TCP server on port 6379 with the handler and loop
   let assert Ok(_) =
     glisten.handler(fn(_conn) { #(ets, None) }, loop)
     |> glisten.serve(6379)
 
+  // Prevent the process from exiting
   process.sleep_forever()
 }
 
-/// This function is called when a message is received.
+/// Message handler loop for each connection
 fn loop(
   message: glisten.Message(a),
   state: State,
@@ -37,18 +37,23 @@ fn loop(
 ) -> actor.Next(glisten.Message(a), State) {
   io.println("Received message")
   case message {
+    // User messages are ignored
     glisten.User(_) -> actor.continue(state)
+    // Packet messages are handled as Redis protocol
     glisten.Packet(data) -> handle_message(conn, state, data)
   }
 }
 
+/// Handles incoming packets, parses RESP, and dispatches commands
 fn handle_message(
   conn: glisten.Connection(a),
   state: State,
   message: BitArray,
 ) -> actor.Next(glisten.Message(a), State) {
   case resp.parse(message) {
+    // Ignore parse errors and continue
     Error(_) -> actor.continue(state)
+    // On success, extract command and arguments and dispatch
     Ok(parsed) -> {
       let assert resp.Array([resp.String(command), ..arguments]) = parsed.data
       command.handle_command(conn, state, string.uppercase(command), arguments)

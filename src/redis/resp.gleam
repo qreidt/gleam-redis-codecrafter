@@ -1,29 +1,35 @@
+// RESP (REdis Serialization Protocol) encoding and decoding utilities
 import gleam/bit_array
 import gleam/int
 import gleam/list
 import gleam/result
 import gleam/string
 
+// RESP data types supported: String, Array, Null
 pub type RespData {
   String(content: String)
   Array(elements: List(RespData))
   Null
 }
 
+// Possible errors during RESP parsing
 pub type ParseError {
   UnexpectedInput(got: BitArray)
   InvalidUnicode
   NotEnoughInput
 }
 
+// Parsed result: RESP data and any remaining input
 pub type Parsed {
   Parsed(data: RespData, remaining_input: BitArray)
 }
 
+// Encode a RespData value to a BitArray (RESP wire format)
 pub fn encode(input: RespData) -> BitArray {
   en(<<>>, input)
 }
 
+// Internal recursive encoder for RESP data
 fn en(buffer: BitArray, input: RespData) -> BitArray {
   case input {
     String(input) -> <<buffer:bits, en_string(input):bits>>
@@ -32,33 +38,34 @@ fn en(buffer: BitArray, input: RespData) -> BitArray {
   }
 }
 
+// Encode a simple string (e.g. +OK\r\n)
 pub fn encode_simple_string(input: String) -> BitArray {
   <<string.concat(["+", input, "\r\n"]):utf8>>
 }
 
+// Encode a bulk string (e.g. $5\r\nhello\r\n)
 fn en_string(input: String) -> BitArray {
   let bytes = int.to_string(bit_array.byte_size(<<input:utf8>>))
   let content = "$" <> bytes <> "\r\n" <> input <> "\r\n"
-
   <<content:utf8>>
 }
 
+// Encode an array of RESP values
 fn en_array(elements: List(RespData)) -> BitArray {
   let length = int.to_string(list.length(elements))
   let buf = <<string.concat(["*", length, "\r\n"]):utf8>>
   list.fold(elements, buf, en)
 }
 
+// Parse a BitArray as RESP data (String, Array, Null, etc)
 pub fn parse(input: BitArray) -> Result(Parsed, ParseError) {
   case input {
     <<"_\r\n":utf8, rest:bits>> -> parse_null(rest)
     <<"$-1\r\n":utf8, rest:bits>> -> parse_null(rest)
     <<"*-1\r\n":utf8, rest:bits>> -> parse_null(rest)
-
     <<"+":utf8, rest:bits>> -> parse_simple_string(rest, <<>>)
     <<"$":utf8, rest:bits>> -> parse_bulk_string(rest)
     <<"*":utf8, rest:bits>> -> parse_array(rest)
-
     input -> Error(UnexpectedInput(input))
   }
 }
