@@ -32,6 +32,10 @@ fn en(buffer: BitArray, input: RespData) -> BitArray {
   }
 }
 
+pub fn encode_simple_string(input: String) -> BitArray {
+  <<string.concat(["+", input, "\r\n"]):utf8>>
+}
+
 fn en_string(input: String) -> BitArray {
   let bytes = int.to_string(bit_array.byte_size(<<input:utf8>>))
   let content = "$" <> bytes <> "\r\n" <> input <> "\r\n"
