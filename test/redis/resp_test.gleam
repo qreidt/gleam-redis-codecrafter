@@ -98,3 +98,47 @@ pub fn parse_array_hello_world_test() {
     ),
   )
 }
+
+pub fn roundtrip_string_test() {
+  let input = resp.String("Gleam")
+
+  input
+  |> resp.encode()
+  |> resp.parse()
+  |> should.be_ok
+  |> should.equal(Parsed(data: input, remaining_input: <<>>))
+}
+
+pub fn roundtrip_array_empty_test() {
+  let input = resp.Array([])
+
+  input
+  |> resp.encode()
+  |> resp.parse()
+  |> should.be_ok
+  |> should.equal(Parsed(data: input, remaining_input: <<>>))
+}
+
+pub fn roundtrip_array_non_empty_test() {
+  let input = resp.Array([resp.String("Hello"), resp.String("World")])
+
+  input
+  |> resp.encode()
+  |> resp.parse()
+  |> should.be_ok
+  |> should.equal(Parsed(data: input, remaining_input: <<>>))
+}
+
+pub fn roundtrip_nested_array_test() {
+  let input =
+    resp.Array([
+      resp.String("Item 1"),
+      resp.Array([resp.String("Item 2a"), resp.String("Item 2b")]),
+    ])
+
+  input
+  |> resp.encode()
+  |> resp.parse()
+  |> should.be_ok
+  |> should.equal(Parsed(data: input, remaining_input: <<>>))
+}

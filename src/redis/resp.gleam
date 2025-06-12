@@ -1,6 +1,8 @@
 import gleam/bit_array
+import gleam/int
 import gleam/list
 import gleam/result
+import gleam/string
 
 pub type RespData {
   String(content: String)
@@ -15,6 +17,30 @@ pub type ParseError {
 
 pub type Parsed {
   Parsed(data: RespData, remaining_input: BitArray)
+}
+
+pub fn encode(input: RespData) -> BitArray {
+  en(<<>>, input)
+}
+
+fn en(buffer: BitArray, input: RespData) -> BitArray {
+  case input {
+    String(input) -> <<buffer:bits, en_string(input):bits>>
+    Array(elements) -> <<buffer:bits, en_array(elements):bits>>
+  }
+}
+
+fn en_string(input: String) -> BitArray {
+  let bytes = int.to_string(bit_array.byte_size(<<input:utf8>>))
+  let content = "$" <> bytes <> "\r\n" <> input <> "\r\n"
+
+  <<content:utf8>>
+}
+
+fn en_array(elements: List(RespData)) -> BitArray {
+  let length = int.to_string(list.length(elements))
+  let buf = <<string.concat(["*", length, "\r\n"]):utf8>>
+  list.fold(elements, buf, en)
 }
 
 pub fn parse(input: BitArray) -> Result(Parsed, ParseError) {
