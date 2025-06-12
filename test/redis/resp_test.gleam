@@ -80,6 +80,13 @@ pub fn parse_bulk_string_invalid_input_test() {
   |> should.equal(resp.InvalidUnicode)
 }
 
+pub fn parse_null_string_test() {
+  <<"$-1\r\n":utf8>>
+  |> resp.parse
+  |> should.be_ok
+  |> should.equal(Parsed(data: resp.Null, remaining_input: <<>>))
+}
+
 pub fn parse_array_empty_test() {
   <<"*0\r\n":utf8>>
   |> resp.parse
@@ -97,6 +104,20 @@ pub fn parse_array_hello_world_test() {
       remaining_input: <<>>,
     ),
   )
+}
+
+pub fn parse_null_array_test() {
+  <<"*-1\r\n":utf8>>
+  |> resp.parse
+  |> should.be_ok
+  |> should.equal(Parsed(data: resp.Null, remaining_input: <<>>))
+}
+
+pub fn parse_null_test() {
+  <<"_\r\n":utf8>>
+  |> resp.parse
+  |> should.be_ok
+  |> should.equal(Parsed(data: resp.Null, remaining_input: <<>>))
 }
 
 pub fn roundtrip_string_test() {
@@ -135,6 +156,16 @@ pub fn roundtrip_nested_array_test() {
       resp.String("Item 1"),
       resp.Array([resp.String("Item 2a"), resp.String("Item 2b")]),
     ])
+
+  input
+  |> resp.encode()
+  |> resp.parse()
+  |> should.be_ok
+  |> should.equal(Parsed(data: input, remaining_input: <<>>))
+}
+
+pub fn roundtrip_null_test() {
+  let input = resp.Null
 
   input
   |> resp.encode()

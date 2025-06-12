@@ -7,6 +7,7 @@ import gleam/string
 pub type RespData {
   String(content: String)
   Array(elements: List(RespData))
+  Null
 }
 
 pub type ParseError {
@@ -27,6 +28,7 @@ fn en(buffer: BitArray, input: RespData) -> BitArray {
   case input {
     String(input) -> <<buffer:bits, en_string(input):bits>>
     Array(elements) -> <<buffer:bits, en_array(elements):bits>>
+    Null -> <<buffer:bits, "_\r\n":utf8>>
   }
 }
 
@@ -45,9 +47,14 @@ fn en_array(elements: List(RespData)) -> BitArray {
 
 pub fn parse(input: BitArray) -> Result(Parsed, ParseError) {
   case input {
+    <<"_\r\n":utf8, rest:bits>> -> parse_null(rest)
+    <<"$-1\r\n":utf8, rest:bits>> -> parse_null(rest)
+    <<"*-1\r\n":utf8, rest:bits>> -> parse_null(rest)
+
     <<"+":utf8, rest:bits>> -> parse_simple_string(rest, <<>>)
     <<"$":utf8, rest:bits>> -> parse_bulk_string(rest)
     <<"*":utf8, rest:bits>> -> parse_array(rest)
+
     input -> Error(UnexpectedInput(input))
   }
 }
@@ -201,6 +208,23 @@ fn parse_array(input: BitArray) -> Result(Parsed, ParseError) {
   }
 }
 
+///
+/// ## Nulls
+/// The null data type represents non-existent values.
+/// 
+/// Nulls' encoding is the underscore (_) character, followed by the CRLF terminator (\r\n). Here's Null's raw RESP encoding:
+/// 
+/// ```
+/// _\r\n
+/// ```
+/// 
+fn parse_null(rest: BitArray) -> Result(Parsed, ParseError) {
+  Ok(Parsed(data: Null, remaining_input: rest))
+}
+
+/// 
+/// Helpers 
+/// 
 fn parse_elements(
   input: BitArray,
   remaining: Int,
